@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import configparser
 import os
 import threading
 import vosk
@@ -26,29 +27,39 @@ class AkulAI:
         self.voices = self.engine.getProperty('voices')
         self.engine.setProperty('voice', self.voices[0].id)
         # Create plugins dictionary
-        self.plugins = {}
+        self.plugins = []
+        self.cp = configparser.RawConfigParser()
         self.discover_plugins()
 
     # Looks for subdirectories in the plugin directory, and scans them for the file types py, js, and pl
     def discover_plugins(self):
         for root, dirs, files in os.walk("plugins"):
             for file in files:
-                if file == "main.py":
-                    plugin_name = os.path.splitext(file)[0]
-                    extension = os.path.splitext(file)[1]
-                    self.check_info(root, plugin_name, extension)
-                    self.plugins[plugin_name] = {"handle": self.load_plugin(os.path.join(root, file)),
-                                                 "extension": ".py"}
+                print(os.path.join(root, file))
+                if os.path.splitext(file)[0] == "main":
+                    info_file = os.path.join(root,'plugin.info')
+                    if os.path.isfile(info_file):
+                        # Parse the info file - get the activation words
+                        self.cp.read(info_file)
+                        if self.cp.has_option('activation words'):
+                            print(self.cp['activation words'])
+                        exit()
+                        extension = os.path.splitext(file)[1]
+                        self.check_info(root, plugin_name, extension)
+                        self.plugins[plugin_name] = {
+                            "handle": self.load_plugin(os.path.join(root, file)),
+                            "extension": extension
+                        }
                 elif file == "main.js":
                     plugin_name = os.path.splitext(file)[0]
                     self.check_info(root, plugin_name, extension)
                     self.plugins[plugin_name] = {"handle": self.load_plugin(os.path.join(root, file)),
-                                                 "extension": ".js"}
+                                         "extension": ".js"}
                 elif file == "main.pl":
                     plugin_name = os.path.splitext(file)[0]
                     self.check_info(root, plugin_name, extension)
                     self.plugins[plugin_name] = {"handle": self.load_plugin(os.path.join(root, file)),
-                                                 "extension": ".pl"}
+                                 "extension": ".pl"}
 
     # Checks for the plugin.info file and installs any required dependencies.
     def check_info(self, root, plugin_name, extension):
